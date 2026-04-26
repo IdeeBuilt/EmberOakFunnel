@@ -773,7 +773,7 @@
     // Only initialize the client if real values have been pasted in.
     // This lets the funnel run end-to-end before Supabase is configured.
     const supabaseConfigured = SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 30;
-    const supabase = supabaseConfigured
+    const sbClient = supabaseConfigured
       ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
       : null;
 
@@ -914,7 +914,7 @@
       };
 
       if (supabaseConfigured) {
-        const { error } = await supabase.from('reservations').insert(payload);
+        const { error } = await sbClient.from('reservations').insert(payload);
         if (error) {
           console.error('Reservation insert failed:', error);
           btn.disabled = false;
