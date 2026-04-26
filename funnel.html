@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ember & Oak — Claim Your Complimentary Appetizer</title>
+  <meta name="description" content="Reserve your table at Ember & Oak and enjoy a complimentary chef's appetizer on your first visit." />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --black:  #080705;
+      --dark:   #0f0d09;
+      --dark2:  #181410;
+      --gold:   #c9a253;
+      --gold2:  #e2c07a;
+      --white:  #f5f0e8;
+      --muted:  rgba(245,240,232,0.45);
+      --border: rgba(201,162,83,0.35);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--black);
+      color: var(--white);
+      font-weight: 300;
+      min-height: 100svh;
+      overflow-x: hidden;
+    }
+
+    /* ─── BACKGROUND ─── */
+    .bg-wrap {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      overflow: hidden;
+    }
+
+    .bg-wrap video {
+      position: absolute;
+      top: 50%; left: 50%;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      transform: translate(-50%, -50%);
+      filter: brightness(0.22) sepia(0.25) saturate(0.9);
+    }
+
+    .bg-vignette {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse at center, transparent 20%, rgba(8,7,5,0.85) 90%),
+        linear-gradient(to bottom, rgba(8,7,5,0.55) 0%, rgba(8,7,5,0.4) 50%, rgba(8,7,5,0.85) 100%);
+    }
+
+    /* ─── LAYOUT ─── */
+    .page {
+      position: relative;
+      z-index: 1;
+      min-height: 100svh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.4rem 3rem;
+      border-bottom: 1px solid rgba(201,162,83,0.12);
+      background: rgba(8,7,5,0.6);
+      backdrop-filter: blur(8px);
+    }
+
+    .brand {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 400;
+      font-size: 1.4rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--white);
+    }
+
+    .brand .gold { color: var(--gold); }
+
+    .brand-tag {
+      font-family: 'Cormorant Garamond', serif;
+      font-style: italic;
+      color: var(--gold);
+      font-size: 0.85rem;
+      letter-spacing: 0.08em;
+    }
+
+    /* ─── PROGRESS ─── */
+    .progress-wrap {
+      padding: 1.4rem 3rem 0;
+    }
+
+    .progress-track {
+      display: flex;
+      gap: 0.5rem;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+
+    .progress-step {
+      flex: 1;
+      height: 2px;
+      background: rgba(201,162,83,0.18);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .progress-step::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--gold);
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: transform 0.5s ease;
+    }
+
+    .progress-step.active::after,
+    .progress-step.done::after { transform: scaleX(1); }
+
+    .progress-labels {
+      display: flex;
+      gap: 0.5rem;
+      max-width: 720px;
+      margin: 0.7rem auto 0;
+    }
+
+    .progress-label {
+      flex: 1;
+      font-size: 0.62rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-align: center;
+      transition: color 0.3s;
+    }
+
+    .progress-label.active { color: var(--gold); }
+
+    /* ─── CONTENT WRAPPER ─── */
+    .content {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 2rem 4rem;
+    }
+
+    .panel {
+      width: 100%;
+      max-width: 760px;
+      position: relative;
+    }
+
+    .step {
+      display: none;
+      animation: fadeUp 0.6s ease both;
+    }
+
+    .step.active { display: block; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(18px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .eyebrow {
+      font-family: 'Cormorant Garamond', serif;
+      font-style: italic;
+      font-weight: 400;
+      font-size: 1rem;
+      letter-spacing: 0.1em;
+      color: var(--gold);
+      display: block;
+      margin-bottom: 0.8rem;
+      text-align: center;
+    }
+
+    h1, h2 {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 300;
+      line-height: 1.05;
+      letter-spacing: 0.02em;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: clamp(2.4rem, 6vw, 4rem);
+      margin-bottom: 1.2rem;
+    }
+
+    h2 {
+      font-size: clamp(1.8rem, 4vw, 2.6rem);
+      margin-bottom: 1rem;
+    }
+
+    .lead {
+      text-align: center;
+      color: rgba(245,240,232,0.7);
+      font-size: 1rem;
+      line-height: 1.7;
+      max-width: 520px;
+      margin: 0 auto 2.5rem;
+    }
+
+    /* ─── OFFER CARD (STEP 1) ─── */
+    .offer-card {
+      max-width: 540px;
+      margin: 0 auto 2.5rem;
+      padding: 2.2rem 2rem;
+      background: rgba(8,7,5,0.7);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--gold);
+      text-align: center;
+      position: relative;
+    }
+
+    .offer-card::before,
+    .offer-card::after {
+      content: '';
+      position: absolute;
+      width: 14px; height: 14px;
+      border: 1px solid var(--gold);
+    }
+    .offer-card::before { top: -7px; left: -7px; border-right: none; border-bottom: none; }
+    .offer-card::after  { bottom: -7px; right: -7px; border-left: none; border-top: none; }
+
+    .offer-tag {
+      font-size: 0.65rem;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 1rem;
+    }
+
+    .offer-headline {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.8rem;
+      font-weight: 400;
+      line-height: 1.2;
+      color: var(--white);
+      margin-bottom: 0.6rem;
+    }
+
+    .offer-headline .gold { color: var(--gold2); font-style: italic; }
+
+    .offer-sub {
+      color: rgba(245,240,232,0.55);
+      font-size: 0.85rem;
+      line-height: 1.6;
+    }
+
+    .trust-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 2.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 2.5rem;
+    }
+
+    .trust-item {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(245,240,232,0.55);
+    }
+
+    .stars {
+      color: var(--gold);
+      letter-spacing: 0.05em;
+      font-size: 0.85rem;
+    }
+
+    /* ─── FORM ─── */
+    .form-grid {
+      display: grid;
+      gap: 1rem;
+      margin-bottom: 1.8rem;
+    }
+
+    .grid-2 { grid-template-columns: 1fr 1fr; }
+    .grid-3 { grid-template-columns: repeat(3, 1fr); }
+
+    @media (max-width: 600px) {
+      .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+    }
+
+    .field label {
+      font-size: 0.62rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: rgba(245,240,232,0.55);
+    }
+
+    .field input,
+    .field select,
+    .field textarea {
+      width: 100%;
+      padding: 0.95rem 1.1rem;
+      background: rgba(8,7,5,0.55);
+      border: 1px solid var(--border);
+      border-radius: 1px;
+      color: var(--white);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 300;
+      transition: border-color 0.2s, background 0.2s;
+    }
+
+    .field input:focus,
+    .field select:focus,
+    .field textarea:focus {
+      outline: none;
+      border-color: var(--gold);
+      background: rgba(8,7,5,0.85);
+    }
+
+    .field input::placeholder,
+    .field textarea::placeholder { color: rgba(245,240,232,0.25); }
+
+    .field textarea { resize: vertical; min-height: 100px; }
+
+    /* Pill choice (party size, time slot) */
+    .pill-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .pill {
+      flex: 1 1 auto;
+      min-width: 60px;
+      padding: 0.85rem 1rem;
+      background: rgba(8,7,5,0.55);
+      border: 1px solid var(--border);
+      color: var(--white);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 400;
+      letter-spacing: 0.05em;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+
+    .pill:hover { border-color: var(--gold2); color: var(--gold2); }
+
+    .pill.selected {
+      border-color: var(--gold);
+      background: rgba(201,162,83,0.12);
+      color: var(--gold2);
+    }
+
+    /* ─── BUTTONS ─── */
+    .btn-row {
+      display: flex;
+      gap: 0.8rem;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 0.5rem;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+      padding: 1rem 2rem;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--white);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.74rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      text-decoration: none;
+      cursor: pointer;
+      border-radius: 1px;
+      transition: all 0.25s;
+      white-space: nowrap;
+    }
+
+    .btn:hover { border-color: var(--gold); color: var(--gold); }
+
+    .btn-gold {
+      border-color: var(--gold);
+      background: var(--gold);
+      color: var(--black);
+      padding: 1.1rem 2.4rem;
+      font-weight: 600;
+    }
+
+    .btn-gold:hover {
+      background: var(--gold2);
+      border-color: var(--gold2);
+      color: var(--black);
+      transform: translateY(-1px);
+      box-shadow: 0 12px 30px -10px rgba(201,162,83,0.45);
+    }
+
+    .btn-gold:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .btn-ghost {
+      border: none;
+      background: transparent;
+      color: rgba(245,240,232,0.55);
+      font-size: 0.7rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      cursor: pointer;
+      padding: 0.5rem 1rem;
+    }
+
+    .btn-ghost:hover { color: var(--gold); }
+
+    .btn .arrow { font-size: 1rem; line-height: 1; }
+
+    /* ─── REASSURANCE NOTE ─── */
+    .micro-note {
+      text-align: center;
+      font-size: 0.7rem;
+      color: rgba(245,240,232,0.4);
+      letter-spacing: 0.05em;
+      margin-top: 1.4rem;
+      font-style: italic;
+    }
+
+    /* ─── SUMMARY (review block) ─── */
+    .summary {
+      max-width: 460px;
+      margin: 0 auto 1.8rem;
+      padding: 1.4rem 1.6rem;
+      background: rgba(8,7,5,0.55);
+      border: 1px solid var(--border);
+    }
+
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.55rem 0;
+      border-bottom: 1px solid rgba(201,162,83,0.12);
+      font-size: 0.85rem;
+    }
+
+    .summary-row:last-child { border-bottom: none; }
+
+    .summary-label {
+      color: rgba(245,240,232,0.55);
+      font-size: 0.65rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    .summary-value { color: var(--gold2); font-weight: 400; }
+
+    /* ─── SUCCESS ─── */
+    .success-icon {
+      width: 84px; height: 84px;
+      border-radius: 50%;
+      border: 1px solid var(--gold);
+      background: rgba(201,162,83,0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 1.8rem;
+      color: var(--gold);
+      font-size: 2rem;
+      animation: pop 0.6s ease 0.2s both;
+    }
+
+    @keyframes pop {
+      0% { transform: scale(0.6); opacity: 0; }
+      60% { transform: scale(1.1); opacity: 1; }
+      100% { transform: scale(1); }
+    }
+
+    .code-card {
+      max-width: 420px;
+      margin: 2rem auto;
+      padding: 1.6rem;
+      background: rgba(8,7,5,0.7);
+      border: 1px dashed var(--gold);
+      text-align: center;
+    }
+
+    .code-label {
+      font-size: 0.65rem;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 0.6rem;
+    }
+
+    .code {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 2rem;
+      letter-spacing: 0.2em;
+      color: var(--white);
+      font-weight: 400;
+    }
+
+    /* ─── FOOTER ─── */
+    footer {
+      padding: 1.5rem 2rem;
+      text-align: center;
+      font-size: 0.7rem;
+      letter-spacing: 0.12em;
+      color: rgba(245,240,232,0.35);
+      border-top: 1px solid rgba(201,162,83,0.1);
+      background: rgba(8,7,5,0.6);
+      backdrop-filter: blur(8px);
+    }
+
+    footer a { color: var(--gold); text-decoration: none; }
+    footer a:hover { color: var(--gold2); }
+
+    /* ─── RESPONSIVE ─── */
+    @media (max-width: 720px) {
+      .top-bar { padding: 1rem 1.4rem; }
+      .brand-tag { display: none; }
+      .progress-wrap { padding: 1rem 1.4rem 0; }
+      .progress-label { font-size: 0.55rem; letter-spacing: 0.12em; }
+      .content { padding: 2rem 1.2rem 3rem; }
+      .offer-card { padding: 1.6rem 1.2rem; }
+      .offer-headline { font-size: 1.4rem; }
+      .trust-row { gap: 1.2rem; }
+      .btn, .btn-gold { padding: 0.9rem 1.4rem; font-size: 0.68rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Background video -->
+  <div class="bg-wrap">
+    <video autoplay muted loop playsinline>
+      <source src="video_compressed.mp4" type="video/mp4" />
+    </video>
+    <div class="bg-vignette"></div>
+  </div>
+
+  <div class="page">
+
+    <div class="top-bar">
+      <div class="brand">Ember <span class="gold">&</span> Oak</div>
+      <div class="brand-tag">Modern American Grill</div>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="progress-wrap">
+      <div class="progress-track">
+        <div class="progress-step" data-bar="1"></div>
+        <div class="progress-step" data-bar="2"></div>
+        <div class="progress-step" data-bar="3"></div>
+        <div class="progress-step" data-bar="4"></div>
+      </div>
+      <div class="progress-labels">
+        <div class="progress-label" data-label="1">Offer</div>
+        <div class="progress-label" data-label="2">Reservation</div>
+        <div class="progress-label" data-label="3">Contact</div>
+        <div class="progress-label" data-label="4">Confirm</div>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="panel">
+
+        <!-- ───── STEP 1: HOOK ───── -->
+        <div class="step active" data-step="1">
+          <span class="eyebrow">A welcome from our chef</span>
+          <h1>A Complimentary <span style="color:var(--gold); font-style:italic;">Appetizer</span><br/>On Your First Visit</h1>
+          <p class="lead">Reserve your table tonight and our chef will send out his signature appetizer — on the house. Our way of saying welcome to Ember & Oak.</p>
+
+          <div class="offer-card">
+            <div class="offer-tag">Limited time · This week only</div>
+            <div class="offer-headline">Chef's <span class="gold">Welcome Plate</span></div>
+            <div class="offer-sub">Wood-fired flatbread, house-cured charcuterie, or seasonal crudo — chef's choice. Valid for parties of 2 or more on your first reservation.</div>
+          </div>
+
+          <div class="trust-row">
+            <div class="trust-item"><span class="stars">★★★★★</span> 4.9 · 380+ Reviews</div>
+            <div class="trust-item">⏱ Limited Tables</div>
+            <div class="trust-item">✓ No Card Required</div>
+          </div>
+
+          <div class="btn-row">
+            <button class="btn btn-gold" data-next="2">Claim my appetizer <span class="arrow">→</span></button>
+          </div>
+          <p class="micro-note">Takes less than 60 seconds · We hold your table for 15 minutes</p>
+        </div>
+
+        <!-- ───── STEP 2: QUALIFY ───── -->
+        <div class="step" data-step="2">
+          <span class="eyebrow">Step 1 of 3</span>
+          <h2>When would you like to dine?</h2>
+          <p class="lead">Pick a date, party size, and time. Most of our prime tables go quickly — choose what works best for you.</p>
+
+          <div class="form-grid">
+            <div class="field">
+              <label>Party Size</label>
+              <div class="pill-group" id="pills-party">
+                <button type="button" class="pill" data-value="2">2</button>
+                <button type="button" class="pill" data-value="3">3</button>
+                <button type="button" class="pill" data-value="4">4</button>
+                <button type="button" class="pill" data-value="5">5</button>
+                <button type="button" class="pill" data-value="6">6</button>
+                <button type="button" class="pill" data-value="7+">7+</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-grid grid-2">
+            <div class="field">
+              <label>Date</label>
+              <input type="date" id="f-date" required />
+            </div>
+            <div class="field">
+              <label>Occasion (optional)</label>
+              <select id="f-occasion">
+                <option value="">— None —</option>
+                <option>Date Night</option>
+                <option>Birthday</option>
+                <option>Anniversary</option>
+                <option>Business Dinner</option>
+                <option>Celebration</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field" style="margin-bottom: 1.8rem;">
+            <label>Preferred Time</label>
+            <div class="pill-group" id="pills-time">
+              <button type="button" class="pill" data-value="5:30 PM">5:30</button>
+              <button type="button" class="pill" data-value="6:00 PM">6:00</button>
+              <button type="button" class="pill" data-value="6:30 PM">6:30</button>
+              <button type="button" class="pill" data-value="7:00 PM">7:00</button>
+              <button type="button" class="pill" data-value="7:30 PM">7:30</button>
+              <button type="button" class="pill" data-value="8:00 PM">8:00</button>
+              <button type="button" class="pill" data-value="8:30 PM">8:30</button>
+              <button type="button" class="pill" data-value="9:00 PM">9:00</button>
+            </div>
+          </div>
+
+          <div class="btn-row">
+            <button class="btn-ghost" data-prev="1">← Back</button>
+            <button class="btn btn-gold" data-next="3" id="next-2" disabled>Continue <span class="arrow">→</span></button>
+          </div>
+          <p class="micro-note">Your table is being held while you finish</p>
+        </div>
+
+        <!-- ───── STEP 3: CAPTURE ───── -->
+        <div class="step" data-step="3">
+          <span class="eyebrow">Step 2 of 3</span>
+          <h2>Where should we send your confirmation?</h2>
+          <p class="lead">We'll email your reservation details and your appetizer code. We never share your information.</p>
+
+          <div class="form-grid">
+            <div class="field">
+              <label>Email</label>
+              <input type="email" id="f-email" placeholder="jane@email.com" required />
+            </div>
+            <div class="field">
+              <label>Mobile (for table-ready text)</label>
+              <input type="tel" id="f-phone" placeholder="(555) 000-0000" required />
+            </div>
+          </div>
+
+          <div class="btn-row">
+            <button class="btn-ghost" data-prev="2">← Back</button>
+            <button class="btn btn-gold" data-next="4" id="next-3" disabled>Continue <span class="arrow">→</span></button>
+          </div>
+          <p class="micro-note">🔒 Secure · No spam · One confirmation email only</p>
+        </div>
+
+        <!-- ───── STEP 4: CONFIRM ───── -->
+        <div class="step" data-step="4">
+          <span class="eyebrow">Step 3 of 3 · Almost there</span>
+          <h2>One last thing</h2>
+          <p class="lead">Tell us your name and any preferences so our team can welcome you properly.</p>
+
+          <div class="form-grid grid-2">
+            <div class="field">
+              <label>First Name</label>
+              <input type="text" id="f-first" placeholder="Jane" required />
+            </div>
+            <div class="field">
+              <label>Last Name</label>
+              <input type="text" id="f-last" placeholder="Smith" required />
+            </div>
+          </div>
+
+          <div class="field" style="margin-bottom: 1.6rem;">
+            <label>Special Requests (optional)</label>
+            <textarea id="f-notes" placeholder="Dietary restrictions, seating preferences, allergies…"></textarea>
+          </div>
+
+          <div class="summary" id="summary">
+            <!-- populated dynamically -->
+          </div>
+
+          <div class="btn-row">
+            <button class="btn-ghost" data-prev="3">← Back</button>
+            <button class="btn btn-gold" id="confirm-btn" disabled>Confirm reservation <span class="arrow">→</span></button>
+          </div>
+          <p class="micro-note" id="confirm-note">By confirming, you agree to our 15-minute hold policy</p>
+          <p class="micro-note" id="confirm-error" style="display:none; color:#e87575;"></p>
+        </div>
+
+        <!-- ───── STEP 5: SUCCESS ───── -->
+        <div class="step" data-step="5">
+          <div class="success-icon">✓</div>
+          <span class="eyebrow">Reservation confirmed</span>
+          <h2 id="success-name">You're all set</h2>
+          <p class="lead" id="success-detail">We've sent your confirmation. Show this code to your server when you arrive.</p>
+
+          <div class="code-card">
+            <div class="code-label">Your Appetizer Code</div>
+            <div class="code">EMBER<span style="color:var(--gold);">·</span>WELCOME</div>
+          </div>
+
+          <div class="btn-row">
+            <a href="index.html" class="btn">← Back to home</a>
+            <a href="#" class="btn btn-gold" id="add-cal">Add to calendar <span class="arrow">→</span></a>
+          </div>
+          <p class="micro-note">Can't make it? Reply to your confirmation email and we'll reschedule.</p>
+        </div>
+
+      </div>
+    </div>
+
+    <footer>
+      Ember & Oak · 1247 Oakwood Lane · <a href="tel:+15550000000">(555) 000-0000</a>
+    </footer>
+  </div>
+
+  <script>
+    // ─── Supabase config ───
+    // 1. Find these in your Supabase dashboard:
+    //    Project Settings → API → Project URL  and  anon public key
+    // 2. Paste them between the quotes below.
+    // The anon key is SAFE to put in client-side code — Row Level Security
+    // (set up in supabase-schema.sql) restricts what it can do.
+    const SUPABASE_URL = 'YOUR_SUPABASE_URL_HERE';
+    const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY_HERE';
+
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // ─── State ───
+    const state = {
+      step: 1,
+      party: null,
+      date: '',
+      time: null,
+      occasion: '',
+      email: '',
+      phone: '',
+      first: '',
+      last: '',
+      notes: ''
+    };
+
+    const $ = sel => document.querySelector(sel);
+    const $$ = sel => document.querySelectorAll(sel);
+
+    // ─── Navigation ───
+    function goTo(n) {
+      $$('.step').forEach(s => s.classList.remove('active'));
+      $(`.step[data-step="${n}"]`).classList.add('active');
+
+      // progress bars (steps 1-4 map to bars 1-4; step 5 = all done)
+      const upto = n === 5 ? 4 : n;
+      $$('.progress-step').forEach(b => {
+        const i = +b.dataset.bar;
+        b.classList.toggle('done', i < upto);
+        b.classList.toggle('active', i === upto);
+      });
+      $$('.progress-label').forEach(l => {
+        const i = +l.dataset.label;
+        l.classList.toggle('active', i <= upto);
+      });
+
+      state.step = n;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    document.querySelectorAll('[data-next]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const target = +btn.dataset.next;
+        if (target === 4) renderSummary();
+        goTo(target);
+      });
+    });
+
+    document.querySelectorAll('[data-prev]').forEach(btn => {
+      btn.addEventListener('click', () => goTo(+btn.dataset.prev));
+    });
+
+    // ─── Pill selection ───
+    function setupPills(groupId, key, onChange) {
+      const grp = document.getElementById(groupId);
+      grp.querySelectorAll('.pill').forEach(p => {
+        p.addEventListener('click', () => {
+          grp.querySelectorAll('.pill').forEach(x => x.classList.remove('selected'));
+          p.classList.add('selected');
+          state[key] = p.dataset.value;
+          onChange && onChange();
+        });
+      });
+    }
+    setupPills('pills-party', 'party', validateStep2);
+    setupPills('pills-time', 'time', validateStep2);
+
+    // ─── Step 2 validation ───
+    function validateStep2() {
+      const ok = state.party && state.date && state.time;
+      $('#next-2').disabled = !ok;
+    }
+    $('#f-date').addEventListener('change', e => {
+      state.date = e.target.value;
+      validateStep2();
+    });
+    $('#f-occasion').addEventListener('change', e => state.occasion = e.target.value);
+
+    // default date = tomorrow
+    (function setMinDate() {
+      const t = new Date(); t.setDate(t.getDate() + 1);
+      const iso = t.toISOString().slice(0, 10);
+      $('#f-date').min = new Date().toISOString().slice(0, 10);
+      $('#f-date').value = iso;
+      state.date = iso;
+    })();
+
+    // ─── Step 3 validation ───
+    function validateStep3() {
+      const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(state.email);
+      const phoneOk = state.phone.replace(/\D/g, '').length >= 7;
+      $('#next-3').disabled = !(emailOk && phoneOk);
+    }
+    $('#f-email').addEventListener('input', e => { state.email = e.target.value.trim(); validateStep3(); });
+    $('#f-phone').addEventListener('input', e => { state.phone = e.target.value.trim(); validateStep3(); });
+
+    // ─── Step 4 validation ───
+    function validateStep4() {
+      $('#confirm-btn').disabled = !(state.first.trim() && state.last.trim());
+    }
+    $('#f-first').addEventListener('input', e => { state.first = e.target.value; validateStep4(); });
+    $('#f-last').addEventListener('input', e => { state.last = e.target.value; validateStep4(); });
+    $('#f-notes').addEventListener('input', e => state.notes = e.target.value);
+
+    // ─── Summary ───
+    function renderSummary() {
+      const fmtDate = state.date ? new Date(state.date + 'T00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '—';
+      $('#summary').innerHTML = `
+        <div class="summary-row"><span class="summary-label">Date</span><span class="summary-value">${fmtDate}</span></div>
+        <div class="summary-row"><span class="summary-label">Time</span><span class="summary-value">${state.time || '—'}</span></div>
+        <div class="summary-row"><span class="summary-label">Party</span><span class="summary-value">${state.party || '—'} guests</span></div>
+        ${state.occasion ? `<div class="summary-row"><span class="summary-label">Occasion</span><span class="summary-value">${state.occasion}</span></div>` : ''}
+        <div class="summary-row"><span class="summary-label">Includes</span><span class="summary-value">Chef's Welcome Plate</span></div>
+      `;
+    }
+
+    // ─── Confirm — submit to Supabase ───
+    $('#confirm-btn').addEventListener('click', async () => {
+      const btn = $('#confirm-btn');
+      const errEl = $('#confirm-error');
+      const noteEl = $('#confirm-note');
+
+      btn.disabled = true;
+      btn.innerHTML = 'Submitting…';
+      errEl.style.display = 'none';
+
+      const payload = {
+        first_name: state.first.trim(),
+        last_name: state.last.trim(),
+        email: state.email.trim().toLowerCase(),
+        phone: state.phone.trim(),
+        party_size: state.party,
+        reservation_date: state.date,
+        reservation_time: state.time,
+        occasion: state.occasion || null,
+        notes: state.notes?.trim() || null
+      };
+
+      const { error } = await supabase.from('reservations').insert(payload);
+
+      if (error) {
+        console.error('Reservation insert failed:', error);
+        btn.disabled = false;
+        btn.innerHTML = 'Confirm reservation <span class="arrow">→</span>';
+        noteEl.style.display = 'none';
+        errEl.style.display = 'block';
+        errEl.textContent = 'Something went wrong saving your reservation. Please call us at (555) 000-0000 or try again.';
+        return;
+      }
+
+      const fmtDate = new Date(state.date + 'T00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+      $('#success-name').textContent = `You're all set, ${state.first}`;
+      $('#success-detail').textContent = `We've held your table for ${state.party} on ${fmtDate} at ${state.time}. Confirmation sent to ${state.email}.`;
+      goTo(5);
+    });
+
+    // ─── Add to calendar (.ics) ───
+    $('#add-cal').addEventListener('click', e => {
+      e.preventDefault();
+      const [hStr, ampm] = state.time.split(' ');
+      let [h, m] = hStr.split(':').map(Number);
+      if (ampm === 'PM' && h !== 12) h += 12;
+      const start = new Date(state.date + 'T00:00');
+      start.setHours(h, m, 0, 0);
+      const end = new Date(start.getTime() + 90 * 60 * 1000);
+      const fmt = d => d.toISOString().replace(/[-:]|\.\d{3}/g, '');
+      const ics = [
+        'BEGIN:VCALENDAR', 'VERSION:2.0', 'BEGIN:VEVENT',
+        `DTSTART:${fmt(start)}`, `DTEND:${fmt(end)}`,
+        `SUMMARY:Dinner at Ember & Oak`,
+        `DESCRIPTION:Reservation for ${state.party} · Code EMBER-WELCOME`,
+        `LOCATION:Ember & Oak, 1247 Oakwood Lane`,
+        'END:VEVENT', 'END:VCALENDAR'
+      ].join('\r\n');
+      const blob = new Blob([ics], { type: 'text/calendar' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'ember-and-oak-reservation.ics';
+      a.click();
+    });
+  </script>
+</body>
+</html>
