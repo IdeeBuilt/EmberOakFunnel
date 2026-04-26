@@ -770,7 +770,12 @@
     const SUPABASE_URL = 'YOUR_SUPABASE_URL_HERE';
     const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY_HERE';
 
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // Only initialize the client if real values have been pasted in.
+    // This lets the funnel run end-to-end before Supabase is configured.
+    const supabaseConfigured = SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 30;
+    const supabase = supabaseConfigured
+      ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+      : null;
 
     // ─── State ───
     const state = {
@@ -908,16 +913,19 @@
         notes: state.notes?.trim() || null
       };
 
-      const { error } = await supabase.from('reservations').insert(payload);
-
-      if (error) {
-        console.error('Reservation insert failed:', error);
-        btn.disabled = false;
-        btn.innerHTML = 'Confirm reservation <span class="arrow">→</span>';
-        noteEl.style.display = 'none';
-        errEl.style.display = 'block';
-        errEl.textContent = 'Something went wrong saving your reservation. Please call us at (555) 000-0000 or try again.';
-        return;
+      if (supabaseConfigured) {
+        const { error } = await supabase.from('reservations').insert(payload);
+        if (error) {
+          console.error('Reservation insert failed:', error);
+          btn.disabled = false;
+          btn.innerHTML = 'Confirm reservation <span class="arrow">→</span>';
+          noteEl.style.display = 'none';
+          errEl.style.display = 'block';
+          errEl.textContent = 'Something went wrong saving your reservation. Please call us at (555) 000-0000 or try again.';
+          return;
+        }
+      } else {
+        console.warn('Supabase not configured — running in demo mode. Reservation:', payload);
       }
 
       const fmtDate = new Date(state.date + 'T00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
