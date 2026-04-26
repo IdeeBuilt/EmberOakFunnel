@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ember & Oak — Reservations Admin</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --black:  #080705;
+      --dark:   #0f0d09;
+      --dark2:  #181410;
+      --dark3:  #1f1a14;
+      --gold:   #c9a253;
+      --gold2:  #e2c07a;
+      --white:  #f5f0e8;
+      --muted:  rgba(245,240,232,0.45);
+      --border: rgba(201,162,83,0.25);
+      --green:  #6fb38a;
+      --red:    #c97a7a;
+      --blue:   #7aa6c9;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--black);
+      color: var(--white);
+      font-weight: 300;
+      min-height: 100svh;
+    }
+
+    /* ─── LOGIN SCREEN ─── */
+    .login-wrap {
+      min-height: 100svh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      background:
+        radial-gradient(ellipse at top, rgba(201,162,83,0.06), transparent 60%),
+        var(--black);
+    }
+
+    .login-card {
+      width: 100%;
+      max-width: 420px;
+      padding: 2.6rem 2.4rem;
+      background: var(--dark);
+      border: 1px solid var(--border);
+      position: relative;
+    }
+
+    .login-brand {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.8rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      text-align: center;
+      margin-bottom: 0.4rem;
+    }
+    .login-brand .gold { color: var(--gold); }
+
+    .login-sub {
+      text-align: center;
+      font-family: 'Cormorant Garamond', serif;
+      font-style: italic;
+      color: var(--gold);
+      font-size: 0.9rem;
+      letter-spacing: 0.1em;
+      margin-bottom: 2.2rem;
+    }
+
+    /* ─── DASHBOARD ─── */
+    .dashboard { display: none; }
+    body.signed-in .login-wrap { display: none; }
+    body.signed-in .dashboard { display: block; }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.1rem 2rem;
+      background: var(--dark);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .topbar-brand {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.3rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+    .topbar-brand .gold { color: var(--gold); }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 1.2rem;
+    }
+
+    .user-pill {
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+    }
+
+    .user-pill .gold { color: var(--gold2); }
+
+    /* ─── LAYOUT ─── */
+    main {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    .page-head {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .page-head h1 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 2.2rem;
+      font-weight: 300;
+      letter-spacing: 0.02em;
+    }
+    .page-head h1 .gold { color: var(--gold); }
+
+    .page-head .sub {
+      font-family: 'Cormorant Garamond', serif;
+      font-style: italic;
+      color: var(--muted);
+      font-size: 0.95rem;
+      margin-top: 0.3rem;
+    }
+
+    /* ─── STATS ─── */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .stat {
+      padding: 1.2rem 1.4rem;
+      background: var(--dark);
+      border: 1px solid var(--border);
+    }
+
+    .stat-label {
+      font-size: 0.62rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
+    }
+
+    .stat-value {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 2rem;
+      font-weight: 400;
+      color: var(--gold2);
+    }
+
+    @media (max-width: 720px) {
+      .stats { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    /* ─── FILTERS ─── */
+    .filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .filter-label {
+      font-size: 0.62rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-right: 0.4rem;
+    }
+
+    .chip {
+      padding: 0.5rem 0.95rem;
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: rgba(245,240,232,0.7);
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .chip:hover { border-color: var(--gold); color: var(--gold); }
+    .chip.active {
+      border-color: var(--gold);
+      background: rgba(201,162,83,0.12);
+      color: var(--gold2);
+    }
+
+    .search {
+      flex: 1;
+      min-width: 200px;
+      padding: 0.55rem 0.9rem;
+      background: var(--dark);
+      border: 1px solid var(--border);
+      color: var(--white);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 300;
+      transition: border-color 0.2s;
+    }
+    .search:focus { outline: none; border-color: var(--gold); }
+    .search::placeholder { color: rgba(245,240,232,0.3); }
+
+    /* ─── INPUTS (login + reused) ─── */
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      margin-bottom: 1rem;
+    }
+    .field label {
+      font-size: 0.62rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .field input,
+    .field select,
+    .field textarea {
+      width: 100%;
+      padding: 0.85rem 1rem;
+      background: var(--black);
+      border: 1px solid var(--border);
+      color: var(--white);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.92rem;
+      font-weight: 300;
+      transition: border-color 0.2s;
+    }
+    .field input:focus,
+    .field select:focus,
+    .field textarea:focus { outline: none; border-color: var(--gold); }
+
+    /* ─── BUTTONS ─── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.7rem 1.4rem;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--white);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.7rem;
+      font-weight: 500;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn:hover { border-color: var(--gold); color: var(--gold); }
+    .btn-gold {
+      border-color: var(--gold);
+      background: var(--gold);
+      color: var(--black);
+      font-weight: 600;
+    }
+    .btn-gold:hover { background: var(--gold2); border-color: var(--gold2); color: var(--black); }
+    .btn-gold:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-block { width: 100%; padding: 0.95rem 1.4rem; }
+    .btn-sm { padding: 0.45rem 0.85rem; font-size: 0.65rem; }
+
+    /* ─── TABLE ─── */
+    .table-wrap {
+      background: var(--dark);
+      border: 1px solid var(--border);
+      overflow-x: auto;
+    }
+
+    table { width: 100%; border-collapse: collapse; }
+
+    thead th {
+      text-align: left;
+      padding: 0.95rem 1rem;
+      font-size: 0.62rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 500;
+      background: var(--dark2);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    tbody td {
+      padding: 1rem;
+      font-size: 0.88rem;
+      border-bottom: 1px solid rgba(201,162,83,0.08);
+      vertical-align: middle;
+    }
+
+    tbody tr {
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    tbody tr:hover { background: var(--dark2); }
+    tbody tr:last-child td { border-bottom: none; }
+
+    .col-when { white-space: nowrap; color: var(--gold2); }
+    .col-when small { display: block; color: var(--muted); font-size: 0.7rem; margin-top: 0.15rem; letter-spacing: 0.05em; }
+
+    .col-name { font-weight: 400; }
+    .col-name small { display: block; color: var(--muted); font-size: 0.72rem; margin-top: 0.15rem; }
+
+    .col-party { color: var(--gold2); font-family: 'Cormorant Garamond', serif; font-size: 1.2rem; }
+
+    /* ─── STATUS BADGE ─── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.35rem 0.75rem;
+      font-size: 0.6rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      border: 1px solid;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+    .badge::before { content: '●'; font-size: 0.7rem; line-height: 1; }
+    .badge-pending   { color: var(--white); border-color: rgba(245,240,232,0.3); }
+    .badge-confirmed { color: var(--gold2); border-color: rgba(226,192,122,0.5); background: rgba(201,162,83,0.08); }
+    .badge-seated    { color: var(--green); border-color: rgba(111,179,138,0.4); background: rgba(111,179,138,0.06); }
+    .badge-no_show   { color: var(--red); border-color: rgba(201,122,122,0.4); background: rgba(201,122,122,0.06); }
+    .badge-cancelled { color: var(--muted); border-color: rgba(245,240,232,0.15); }
+
+    /* ─── EMPTY STATE ─── */
+    .empty {
+      padding: 4rem 2rem;
+      text-align: center;
+      color: var(--muted);
+    }
+    .empty .icon {
+      font-size: 2.2rem;
+      color: var(--gold);
+      margin-bottom: 1rem;
+      opacity: 0.6;
+    }
+    .empty h3 {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 400;
+      font-size: 1.4rem;
+      margin-bottom: 0.4rem;
+      color: var(--white);
+    }
+
+    .loading {
+      padding: 3rem;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.85rem;
+      letter-spacing: 0.1em;
+    }
+
+    /* ─── MODAL ─── */
+    .modal-bg {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(8,7,5,0.85);
+      backdrop-filter: blur(6px);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+    .modal-bg.open { display: flex; }
+
+    .modal {
+      width: 100%;
+      max-width: 540px;
+      max-height: 90vh;
+      overflow-y: auto;
+      background: var(--dark);
+      border: 1px solid var(--gold);
+      padding: 2rem;
+      position: relative;
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 1rem; right: 1rem;
+      width: 32px; height: 32px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--white);
+      cursor: pointer;
+      font-size: 1rem;
+      border-radius: 50%;
+      transition: all 0.2s;
+    }
+    .modal-close:hover { border-color: var(--gold); color: var(--gold); }
+
+    .modal h2 {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 300;
+      font-size: 1.8rem;
+      margin-bottom: 0.4rem;
+    }
+    .modal h2 .gold { color: var(--gold); }
+
+    .modal-eyebrow {
+      font-family: 'Cormorant Garamond', serif;
+      font-style: italic;
+      color: var(--gold);
+      font-size: 0.85rem;
+      letter-spacing: 0.08em;
+      margin-bottom: 1.6rem;
+    }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem 1.4rem;
+      padding: 1.2rem 0;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 1.4rem;
+    }
+
+    .detail {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+    .detail .lbl {
+      font-size: 0.6rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .detail .val {
+      font-size: 0.92rem;
+      color: var(--white);
+      word-break: break-word;
+    }
+    .detail.full { grid-column: 1 / -1; }
+
+    .status-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+
+    .status-actions h4 {
+      width: 100%;
+      font-size: 0.62rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 500;
+      margin-bottom: 0.4rem;
+    }
+
+    /* ─── ALERT ─── */
+    .alert {
+      padding: 0.85rem 1rem;
+      border: 1px solid;
+      font-size: 0.82rem;
+      margin-bottom: 1.2rem;
+      display: none;
+    }
+    .alert.show { display: block; }
+    .alert-error { color: var(--red); border-color: rgba(201,122,122,0.4); background: rgba(201,122,122,0.06); }
+    .alert-success { color: var(--green); border-color: rgba(111,179,138,0.4); background: rgba(111,179,138,0.06); }
+
+    /* ─── RESPONSIVE TABLE ─── */
+    @media (max-width: 640px) {
+      main { padding: 1rem; }
+      .page-head h1 { font-size: 1.6rem; }
+      thead { display: none; }
+      tbody td { display: block; padding: 0.5rem 1rem; border: none; }
+      tbody tr { display: block; padding: 1rem 0; border-bottom: 1px solid var(--border); }
+      tbody td::before {
+        content: attr(data-label);
+        display: inline-block;
+        font-size: 0.55rem;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--muted);
+        width: 90px;
+        margin-right: 0.5rem;
+      }
+      .detail-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ───── LOGIN ───── -->
+  <div class="login-wrap" id="loginWrap">
+    <div class="login-card">
+      <div class="login-brand">Ember <span class="gold">&</span> Oak</div>
+      <div class="login-sub">Reservations Admin</div>
+
+      <div class="alert alert-error" id="loginError"></div>
+
+      <form id="loginForm">
+        <div class="field">
+          <label>Email</label>
+          <input type="email" id="loginEmail" required autocomplete="email" />
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <input type="password" id="loginPassword" required autocomplete="current-password" />
+        </div>
+        <button type="submit" class="btn btn-gold btn-block" id="loginBtn">
+          Sign in
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ───── DASHBOARD ───── -->
+  <div class="dashboard">
+
+    <div class="topbar">
+      <div class="topbar-brand">Ember <span class="gold">&</span> Oak</div>
+      <div class="topbar-right">
+        <span class="user-pill">Signed in · <span class="gold" id="userEmail"></span></span>
+        <button class="btn btn-sm" id="logoutBtn">Sign out</button>
+      </div>
+    </div>
+
+    <main>
+      <div class="page-head">
+        <div>
+          <h1>Reservations <span class="gold">·</span> Today</h1>
+          <div class="sub" id="todayDate"></div>
+        </div>
+        <button class="btn" id="refreshBtn">↻ Refresh</button>
+      </div>
+
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-label">Today</div>
+          <div class="stat-value" id="statToday">—</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">This Week</div>
+          <div class="stat-value" id="statWeek">—</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Pending</div>
+          <div class="stat-value" id="statPending">—</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">All Time</div>
+          <div class="stat-value" id="statAll">—</div>
+        </div>
+      </div>
+
+      <div class="filters">
+        <span class="filter-label">When</span>
+        <button class="chip active" data-when="today">Today</button>
+        <button class="chip" data-when="week">Next 7 days</button>
+        <button class="chip" data-when="upcoming">All upcoming</button>
+        <button class="chip" data-when="all">Everything</button>
+      </div>
+
+      <div class="filters">
+        <span class="filter-label">Status</span>
+        <button class="chip active" data-status="all">All</button>
+        <button class="chip" data-status="pending">Pending</button>
+        <button class="chip" data-status="confirmed">Confirmed</button>
+        <button class="chip" data-status="seated">Seated</button>
+        <button class="chip" data-status="no_show">No-show</button>
+        <button class="chip" data-status="cancelled">Cancelled</button>
+        <input type="search" class="search" id="searchInput" placeholder="Search by name or email…" />
+      </div>
+
+      <div class="table-wrap">
+        <div id="loadingState" class="loading">Loading reservations…</div>
+        <table id="reservationsTable" style="display:none;">
+          <thead>
+            <tr>
+              <th>When</th>
+              <th>Guest</th>
+              <th>Party</th>
+              <th>Contact</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="reservationsBody"></tbody>
+        </table>
+        <div class="empty" id="emptyState" style="display:none;">
+          <div class="icon">◇</div>
+          <h3>No reservations match</h3>
+          <div>Try adjusting the filters above.</div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ───── MODAL ───── -->
+  <div class="modal-bg" id="modal">
+    <div class="modal">
+      <button class="modal-close" id="modalClose">×</button>
+      <div class="modal-eyebrow" id="modalEyebrow">Reservation</div>
+      <h2 id="modalName">—</h2>
+
+      <div class="alert alert-error" id="modalError"></div>
+      <div class="alert alert-success" id="modalSuccess"></div>
+
+      <div class="detail-grid" id="modalDetails"></div>
+
+      <div class="status-actions">
+        <h4>Update status</h4>
+        <button class="btn btn-sm" data-set="pending">Pending</button>
+        <button class="btn btn-sm" data-set="confirmed">Confirmed</button>
+        <button class="btn btn-sm" data-set="seated">Seated</button>
+        <button class="btn btn-sm" data-set="no_show">No-show</button>
+        <button class="btn btn-sm" data-set="cancelled">Cancelled</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ─── Supabase ───
+    const SUPABASE_URL = 'https://uurvwscsdicuctpxllbw.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_CIqv6eiohVGtyx1aEahIOQ_1I44zLzi';
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const $ = s => document.querySelector(s);
+    const $$ = s => document.querySelectorAll(s);
+
+    // ─── State ───
+    let allReservations = [];
+    let filterWhen = 'today';
+    let filterStatus = 'all';
+    let searchQuery = '';
+    let activeRow = null;
+
+    // ─── Auth flow ───
+    async function checkSession() {
+      const { data } = await sb.auth.getSession();
+      if (data.session) {
+        showDashboard(data.session.user);
+      }
+    }
+
+    function showDashboard(user) {
+      document.body.classList.add('signed-in');
+      $('#userEmail').textContent = user.email;
+      $('#todayDate').textContent = new Date().toLocaleDateString('en-US', {
+        weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
+      });
+      loadReservations();
+    }
+
+    $('#loginForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      const errEl = $('#loginError');
+      const btn = $('#loginBtn');
+      errEl.classList.remove('show');
+      btn.disabled = true;
+      btn.textContent = 'Signing in…';
+
+      const { data, error } = await sb.auth.signInWithPassword({
+        email: $('#loginEmail').value.trim(),
+        password: $('#loginPassword').value
+      });
+
+      btn.disabled = false;
+      btn.textContent = 'Sign in';
+
+      if (error) {
+        errEl.textContent = error.message;
+        errEl.classList.add('show');
+        return;
+      }
+      showDashboard(data.user);
+    });
+
+    $('#logoutBtn').addEventListener('click', async () => {
+      await sb.auth.signOut();
+      location.reload();
+    });
+
+    // ─── Load reservations ───
+    async function loadReservations() {
+      $('#loadingState').style.display = 'block';
+      $('#reservationsTable').style.display = 'none';
+      $('#emptyState').style.display = 'none';
+
+      const { data, error } = await sb.from('reservations')
+        .select('*')
+        .order('reservation_date', { ascending: true })
+        .order('reservation_time', { ascending: true });
+
+      if (error) {
+        $('#loadingState').textContent = 'Error: ' + error.message;
+        return;
+      }
+
+      allReservations = data || [];
+      updateStats();
+      renderTable();
+    }
+
+    $('#refreshBtn').addEventListener('click', loadReservations);
+
+    // ─── Stats ───
+    function updateStats() {
+      const today = todayISO();
+      const weekEnd = isoDaysFromNow(7);
+      $('#statToday').textContent = allReservations.filter(r => r.reservation_date === today).length;
+      $('#statWeek').textContent = allReservations.filter(r => r.reservation_date >= today && r.reservation_date <= weekEnd).length;
+      $('#statPending').textContent = allReservations.filter(r => r.status === 'pending' && r.reservation_date >= today).length;
+      $('#statAll').textContent = allReservations.length;
+    }
+
+    function todayISO() { return new Date().toISOString().slice(0, 10); }
+    function isoDaysFromNow(n) {
+      const d = new Date(); d.setDate(d.getDate() + n);
+      return d.toISOString().slice(0, 10);
+    }
+
+    // ─── Filters ───
+    $$('[data-when]').forEach(c => c.addEventListener('click', () => {
+      $$('[data-when]').forEach(x => x.classList.remove('active'));
+      c.classList.add('active');
+      filterWhen = c.dataset.when;
+      renderTable();
+    }));
+
+    $$('[data-status]').forEach(c => c.addEventListener('click', () => {
+      $$('[data-status]').forEach(x => x.classList.remove('active'));
+      c.classList.add('active');
+      filterStatus = c.dataset.status;
+      renderTable();
+    }));
+
+    $('#searchInput').addEventListener('input', e => {
+      searchQuery = e.target.value.trim().toLowerCase();
+      renderTable();
+    });
+
+    // ─── Render table ───
+    function renderTable() {
+      const today = todayISO();
+      let rows = allReservations;
+
+      if (filterWhen === 'today')      rows = rows.filter(r => r.reservation_date === today);
+      else if (filterWhen === 'week')  rows = rows.filter(r => r.reservation_date >= today && r.reservation_date <= isoDaysFromNow(7));
+      else if (filterWhen === 'upcoming') rows = rows.filter(r => r.reservation_date >= today);
+
+      if (filterStatus !== 'all')      rows = rows.filter(r => r.status === filterStatus);
+
+      if (searchQuery) {
+        rows = rows.filter(r =>
+          (`${r.first_name} ${r.last_name}`).toLowerCase().includes(searchQuery) ||
+          (r.email || '').toLowerCase().includes(searchQuery)
+        );
+      }
+
+      $('#loadingState').style.display = 'none';
+      const tbody = $('#reservationsBody');
+
+      if (rows.length === 0) {
+        $('#reservationsTable').style.display = 'none';
+        $('#emptyState').style.display = 'block';
+        return;
+      }
+
+      $('#emptyState').style.display = 'none';
+      $('#reservationsTable').style.display = 'table';
+
+      tbody.innerHTML = rows.map(r => {
+        const dateObj = new Date(r.reservation_date + 'T00:00');
+        const dateStr = dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        return `
+          <tr data-id="${r.id}">
+            <td data-label="When"><div class="col-when">${r.reservation_time}<small>${dateStr}</small></div></td>
+            <td data-label="Guest"><div class="col-name">${escapeHtml(r.first_name)} ${escapeHtml(r.last_name)}${r.occasion ? ` <small>${escapeHtml(r.occasion)}</small>` : ''}</div></td>
+            <td data-label="Party"><span class="col-party">${escapeHtml(r.party_size)}</span></td>
+            <td data-label="Contact">${escapeHtml(r.email)}<br/><small style="color:var(--muted);font-size:0.75rem;">${escapeHtml(r.phone)}</small></td>
+            <td data-label="Status"><span class="badge badge-${r.status}">${r.status.replace('_', '-')}</span></td>
+          </tr>
+        `;
+      }).join('');
+
+      tbody.querySelectorAll('tr').forEach(tr => {
+        tr.addEventListener('click', () => openModal(tr.dataset.id));
+      });
+    }
+
+    function escapeHtml(s) {
+      if (s == null) return '';
+      return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    // ─── Modal ───
+    function openModal(id) {
+      const r = allReservations.find(x => x.id === id);
+      if (!r) return;
+      activeRow = r;
+      $('#modalError').classList.remove('show');
+      $('#modalSuccess').classList.remove('show');
+
+      const dateStr = new Date(r.reservation_date + 'T00:00').toLocaleDateString('en-US', {
+        weekday: 'long', month: 'long', day: 'numeric'
+      });
+
+      $('#modalEyebrow').innerHTML = `<span class="badge badge-${r.status}">${r.status.replace('_', '-')}</span>`;
+      $('#modalName').innerHTML = `${escapeHtml(r.first_name)} <span class="gold">${escapeHtml(r.last_name)}</span>`;
+      $('#modalDetails').innerHTML = `
+        <div class="detail"><span class="lbl">Date</span><span class="val">${dateStr}</span></div>
+        <div class="detail"><span class="lbl">Time</span><span class="val">${escapeHtml(r.reservation_time)}</span></div>
+        <div class="detail"><span class="lbl">Party</span><span class="val">${escapeHtml(r.party_size)} guests</span></div>
+        <div class="detail"><span class="lbl">Occasion</span><span class="val">${escapeHtml(r.occasion) || '—'}</span></div>
+        <div class="detail full"><span class="lbl">Email</span><span class="val">${escapeHtml(r.email)}</span></div>
+        <div class="detail full"><span class="lbl">Phone</span><span class="val">${escapeHtml(r.phone)}</span></div>
+        ${r.notes ? `<div class="detail full"><span class="lbl">Notes</span><span class="val">${escapeHtml(r.notes)}</span></div>` : ''}
+        <div class="detail full"><span class="lbl">Submitted</span><span class="val">${new Date(r.created_at).toLocaleString()}</span></div>
+      `;
+      $('#modal').classList.add('open');
+    }
+
+    $('#modalClose').addEventListener('click', closeModal);
+    $('#modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
+    function closeModal() { $('#modal').classList.remove('open'); activeRow = null; }
+
+    // ─── Status update ───
+    $$('[data-set]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!activeRow) return;
+        const newStatus = btn.dataset.set;
+        const errEl = $('#modalError');
+        const okEl = $('#modalSuccess');
+        errEl.classList.remove('show');
+        okEl.classList.remove('show');
+
+        const { error } = await sb.from('reservations')
+          .update({ status: newStatus })
+          .eq('id', activeRow.id);
+
+        if (error) {
+          errEl.textContent = 'Update failed: ' + error.message;
+          errEl.classList.add('show');
+          return;
+        }
+        activeRow.status = newStatus;
+        const idx = allReservations.findIndex(r => r.id === activeRow.id);
+        if (idx >= 0) allReservations[idx].status = newStatus;
+        okEl.textContent = `Marked as ${newStatus.replace('_', '-')}`;
+        okEl.classList.add('show');
+        updateStats();
+        renderTable();
+        $('#modalEyebrow').innerHTML = `<span class="badge badge-${newStatus}">${newStatus.replace('_', '-')}</span>`;
+      });
+    });
+
+    // ─── Init ───
+    checkSession();
+  </script>
+</body>
+</html>
